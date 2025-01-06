@@ -1,0 +1,400 @@
+import requests
+from datetime import datetime
+from constants import ODK_AUTH, ODK_API_URL, DHIS2_API_URL, DHIS2_AUTH
+from utils import (
+    configure_logging,
+    log_info,
+    log_error,
+    get_dhis2_orgunit_uid_by_block_district,
+    get_dhis2_orgunit_uid_by_nin,
+    data_value_exists_in_dhis2,
+)
+
+
+def fetch_odk_data():
+    try:
+        today_date = datetime.now().strftime("%Y-%m-%d")
+        updated_odk_api_url = f"{ODK_API_URL}?$filter=__system/submissionDate ge {today_date}"
+        response = requests.get(updated_odk_api_url, auth=ODK_AUTH)
+        print("Data fetched for:", updated_odk_api_url)
+        if response.status_code == 200:
+            if response.json() and "value" in response.json():
+                log_info("ODK data fetched successfully.")
+                return response.json()["value"]
+            else:
+                log_error("Invalid or missing JSON content in the ODK response.")
+                return []
+        else:
+            log_error(
+                f"Failed to fetch ODK data. Status code: {response.status_code}")
+            return []
+    except Exception as e:
+        log_error("An error occurred while fetching ODK data: " + str(e))
+        return []
+
+
+def remove_null_values(obj):
+    if isinstance(obj, dict):
+        return {key: remove_null_values(value) for key, value in obj.items() if value is not None and value != "null"}
+    elif isinstance(obj, list):
+        return [remove_null_values(item) for item in obj if item is not None and item != "null"]
+    else:
+        return obj
+
+
+def assign_value_if_not_null(value):
+    if value is not None and value != "null":
+        return value
+    else:
+        return None
+
+
+def format_date(date_str):
+    try:
+        date_obj = datetime.strptime(date_str, "%y-%m-%d")
+        formatted_date = date_obj.strftime("%Y-%m-%d")
+        return formatted_date
+    except ValueError:
+        return None
+
+
+def convert_to_boolean(value):
+    if value == "1":
+        return "true"
+    elif value == "0":
+        return "false"
+    else:
+        return None
+
+
+def transform_to_dhis2_events(odk_data):
+    tracker_payloads = []
+
+    for submission in odk_data:
+        block_name = submission["find_hf"]["BLOCK_NAME"]
+        district_name = submission["find_hf"]["DISTRICT_NAME"]
+        facility_name = submission["find_hf"]["Facility"]
+        facility_nin = submission["find_hf"]["srch_nin"]
+        orgunit_uid = get_dhis2_orgunit_uid_by_nin(facility_nin)
+
+        if orgunit_uid:
+            event_id = str(submission["g_info"]["patient_id"])
+            if not data_value_exists_in_dhis2(event_id, orgunit_uid):
+                tracker = {
+                    "trackedEntityType": "oATSCRUUP2e",
+                    "orgUnit": orgunit_uid,
+                    "attributes": remove_null_values([
+                        {"attribute": "taR4U6rFoJe", "value": assign_value_if_not_null(
+                            submission["login_check"]["mobile"])},
+                        {"attribute": "P3rzcSSRXl2", "value": assign_value_if_not_null(
+                            submission["login_check"]["Ass_name"])},
+                        {"attribute": "VTCQOcgxnbu", "value": assign_value_if_not_null(
+                            submission["find_hf"]["srch_nin"])},
+                        {"attribute": "vJ5V1IQXZjP", "value": str(
+                            submission["g_info"]["patient_id"])},
+                        {"attribute": "Pjefw1pegya", "value": assign_value_if_not_null(
+                            submission["g_info"]["p_mnumber"])},
+                        {"attribute": "PZpInnrrLro", "value": assign_value_if_not_null(
+                            submission["g_info"]["p_name"])},
+                        {"attribute": "LrySs4kH5RF", "value": assign_value_if_not_null(
+                            submission["g_info"]["p_gname"])},
+                        {"attribute": "OQjRgNoLfSX", "value": assign_value_if_not_null(
+                            submission["g_info"]["p_village"])},
+                        {"attribute": "oEMrehxUj3q", "value": assign_value_if_not_null(
+                            submission["g_info"]["gender"])},
+                    ]),
+                    "enrollments": [
+                        {
+                            "orgUnit": orgunit_uid,
+                            "program": "rlXLtThwiu6",
+                            "enrollmentDate": submission["g_info"]["cdate"],
+                            "incidentDate": submission["g_info"]["cdate"],
+                            "dueDate": submission["g_info"]["cdate"],
+                            "events": [
+                                {
+                                    "program": "rlXLtThwiu6",
+                                    "orgUnit": orgunit_uid,
+                                    "eventDate": submission["g_info"]["cdate"],
+                                    "status": "COMPLETED",
+                                    "storedBy": "dhis2_user",
+                                    "programStage": "ThOsLBLcIt9",
+                                    "dataValues": remove_null_values([
+                                        {"dataElement": "jjrFSLhONiM", "value": assign_value_if_not_null(
+                                            submission["age_group"]["ageindays"])},
+                                        {"dataElement": "k6FVpUuqsS2", "value": assign_value_if_not_null(
+                                            submission["age_group"]["age2m"])},
+                                        {"dataElement": "K2wIle8NT6W", "value": assign_value_if_not_null(
+                                            submission["age_group"]["age6m"])},
+
+                                        {"dataElement": "hqgCOHJInA0", "value": assign_value_if_not_null(
+                                            submission["g_assessment"]["p_height"])},
+                                        {"dataElement": "ZSsWwLEqGKk", "value": assign_value_if_not_null(
+                                            submission["g_assessment"]["cweight_kg"])},
+                                        {"dataElement": "GdDpEB7ynVN", "value": assign_value_if_not_null(
+                                            submission["g_assessment"]["wsd"])},
+                                        {"dataElement": "VTmoPxkBo6E", "value": assign_value_if_not_null(
+                                            submission["g_assessment"]["ctof"])},
+                                        {"dataElement": "O5AhfFlx7mo", "value": assign_value_if_not_null(
+                                            submission["g_assessment"]["Respiratory_Rate"])},
+                                        {"dataElement": "FIbRtWyuYTV", "value": assign_value_if_not_null(
+                                            submission["g_assessment"]["SpO2"])},
+                                        {"dataElement": "TTLmU9uVNms", "value": assign_value_if_not_null(
+                                            submission["group_dgsign"]["dg_sign"])},
+
+                                        {"dataElement": "heeMNNzHx5F", "value": convert_to_boolean(
+                                            submission["group_dgsign"]["sbi"])},
+                                        {"dataElement": "RS49bAM8eqt", "value": convert_to_boolean(
+                                            submission["group_dgsign"]["lbi"])},
+                                        {"dataElement": "SL23KYREYx6", "value": convert_to_boolean(
+                                            submission["group_dgsign"]["vsd"])},
+
+                                        {"dataElement": "vCM8aknxuHa", "value": convert_to_boolean(
+                                            submission["g_symptom"]["sym_fev"])},
+                                        {"dataElement": "WZ20khHO6hY", "value": assign_value_if_not_null(
+                                            submission["g_symptom"]["fever_days"])},
+                                        {"dataElement": "ZORujXaBDIq", "value": convert_to_boolean(
+                                            submission["g_symptom"]["rdt_yn"])},
+                                        {"dataElement": "axEK4FrVKId", "value": assign_value_if_not_null(
+                                            submission["g_symptom"]["Malaria_RDT"])},
+                                        {"dataElement": "Cap7heibSuc", "value": assign_value_if_not_null(
+                                            submission["g_symptom"]["RDT_Result"])},
+                                        {"dataElement": "GFuAmDGOwU3", "value": convert_to_boolean(
+                                            submission["g_symptom"]["sym_cou"])},
+                                        {"dataElement": "zSMO6Z9ZYuW", "value": assign_value_if_not_null(
+                                            submission["g_symptom"]["cough_days"])},
+                                        {"dataElement": "us1ejneunla", "value": convert_to_boolean(
+                                            submission["g_symptom"]["chest_indrawing"])},
+                                        {"dataElement": "bh29EbIXtoW", "value": convert_to_boolean(
+                                            submission["g_symptom"]["sym_dia"])},
+                                        {"dataElement": "ZYBgaRdy2P2", "value": convert_to_boolean(
+                                            submission["g_symptom"]["Blood_in_stool"])},
+                                        {"dataElement": "dCcDZpeI2CU", "value": assign_value_if_not_null(
+                                            submission["g_symptom"]["Duration_dia"])},
+                                        {"dataElement": "QexgEXFBJjU", "value": convert_to_boolean(
+                                            submission["g_symptom"]["sunken_eye"])},
+                                        {"dataElement": "mGmc5SBuSTU", "value": assign_value_if_not_null(
+                                            submission["g_symptom"]["Diasign1"])},
+                                        {"dataElement": "AaD3wFRPJuR", "value": assign_value_if_not_null(
+                                            submission["g_symptom"]["Diasign2"])},
+                                        {"dataElement": "Mwm0FWAKx91", "value": assign_value_if_not_null(
+                                            submission["g_symptom"]["Diasign3"])},
+                                        {"dataElement": "wPaepUry0zP", "value": convert_to_boolean(
+                                            submission["g_symptom"]["sdehy"])},
+                                        {"dataElement": "FrqeyskmmRO", "value": convert_to_boolean(
+                                            submission["g_symptom"]["mdehy"])},
+                                        {"dataElement": "DWN5ro9apBK", "value": convert_to_boolean(
+                                            submission["g_symptom"]["Yellowps"])},
+
+                                        {"dataElement": "lKVfb0PQmKG", "value": convert_to_boolean(
+                                            submission["g_physical"]["Oedema"])},
+                                        {"dataElement": "lwfojBDB21L", "value": assign_value_if_not_null(
+                                            submission["g_physical"]["MUAC"])},
+                                        {"dataElement": "Rup9mAN7poA", "value": assign_value_if_not_null(
+                                            submission["g_physical"]["Palmar_Pallor"])},
+                                        {"dataElement": "cASOQROlJn1", "value": assign_value_if_not_null(
+                                            submission["g_physical"]["hbtest_yn"])},
+                                        {"dataElement": "aNYzfJzRR1z", "value": assign_value_if_not_null(
+                                            submission["g_physical"]["hb_result"])},
+                                        {"dataElement": "hFU3TpxkusV", "value": assign_value_if_not_null(
+                                            submission["g_feeding"]["Fedinday"])},
+                                        {"dataElement": "TI4L48NhpRv", "value": assign_value_if_not_null(
+                                            submission["g_feeding"]["Fassessment"])},
+
+                                        {"dataElement": "joGoMEmXjws", "value": convert_to_boolean(
+                                            submission["vaccine"]["vverify"])},
+
+
+                                        {"dataElement": "bOscllt4kTF", "value": assign_value_if_not_null(
+                                            submission["vaccine"]["vcount"])},
+                                        {"dataElement": "yTmNn1h7GF1", "value": assign_value_if_not_null(
+                                            submission["vaccine"]["vuptoage"])},
+                                        {"dataElement": "kh3PWQZqGJ7", "value": assign_value_if_not_null(
+                                            submission["vaccine"]["vstatus"])},
+
+                                        {"dataElement": "UPneh8IFQaS", "value": assign_value_if_not_null(
+                                            submission["class_danger"])},
+                                        {"dataElement": "drVi4hwvtf4", "value": assign_value_if_not_null(
+                                            submission["class_cough"])},
+                                        {"dataElement": "dZ6ILZRGYwG", "value": assign_value_if_not_null(
+                                            submission["class_diarrhoea"])},
+                                        {"dataElement": "b1GoUpmpCY3", "value": assign_value_if_not_null(
+                                            submission["class_dehydration"])},
+                                        {"dataElement": "DYyANDuDU8h", "value": assign_value_if_not_null(
+                                            submission["class_fever"])},
+                                        {"dataElement": "pJbgYDfbV3r", "value": assign_value_if_not_null(
+                                            submission["class_jaundice"])},
+                                        {"dataElement": "dKXzAeX5O4q", "value": assign_value_if_not_null(
+                                            submission["class_nutri_L2M"])},
+                                        {"dataElement": "ZJS5H5EolmS", "value": assign_value_if_not_null(
+                                            submission["class_nutri_M2M"])},
+                                        {"dataElement": "DZoPvl0fICU", "value": assign_value_if_not_null(
+                                            submission["class_anemia"])},
+                                        {"dataElement": "xPM9IdEvtuI", "value": format_date(
+                                            submission["f_cdate"])},
+                                        {"dataElement": "uHT7yTuxaVh", "value": assign_value_if_not_null(
+                                            submission["action"]["action_taken"])},
+                                        {"dataElement": "JC7QLcTk2jk", "value": assign_value_if_not_null(
+                                            submission["action"]["refered_facility"])},
+                                        {"dataElement": "DrDGvWlEwZ3", "value": assign_value_if_not_null(
+                                            submission["login_check"]["designation"])}
+                                    ])
+                                }
+                            ]
+                        }
+                    ]
+
+
+                }
+
+                {"dataElement": "aIHwYTVZ8xa", "value": convert_to_boolean(
+                    submission["g_symptom"]["stiff_neck"])},
+                {"dataElement": "AjzxOrYrNiX", "value": convert_to_boolean(
+                    submission["g_symptom"]["sym_jau"])},
+                if submission["vaccine"]["Births"] is not None and "1" in submission["vaccine"]["Births"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "jQ0FytRaeiz", "value": "true"})
+                if submission["vaccine"]["Births"] is not None and "2" in submission["vaccine"]["Births"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "OhXL8sA7OXO", "value": "true"})
+                if submission["vaccine"]["Births"] is not None and "3" in submission["vaccine"]["Births"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "mYy9vokQqUw", "value": "true"})
+
+                if submission["vaccine"]["w6v"] is not None and "1" in submission["vaccine"]["w6v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "XFSwnBeWvWA", "value": "true"})
+                if submission["vaccine"]["w6v"] is not None and "2" in submission["vaccine"]["w6v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "DUkbY3oYF8l", "value": "true"})
+                if submission["vaccine"]["w6v"] is not None and "3" in submission["vaccine"]["w6v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "fTDLA0N1nBF", "value": "true"})
+                if submission["vaccine"]["w6v"] is not None and "4" in submission["vaccine"]["w6v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "EVuYbOwDJQG", "value": "true"})
+                if submission["vaccine"]["w6v"] is not None and "5" in submission["vaccine"]["w6v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "qWhs2vOUshg", "value": "true"})
+
+                if submission["vaccine"]["w10v"] is not None and "1" in submission["vaccine"]["w10v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "vUzJzfhN4gF", "value": "true"})
+                if submission["vaccine"]["w10v"] is not None and "2" in submission["vaccine"]["w10v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "aCVif9XCeAp", "value": "true"})
+                if submission["vaccine"]["w10v"] is not None and "3" in submission["vaccine"]["w10v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "Hp4nc4xHQFb", "value": "true"})
+
+                if submission["vaccine"]["w14v"] is not None and "1" in submission["vaccine"]["w14v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "MuA9gqApApT", "value": "true"})
+                if submission["vaccine"]["w14v"] is not None and "2" in submission["vaccine"]["w14v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "wwI4BTxvO2H", "value": "true"})
+                if submission["vaccine"]["w14v"] is not None and "3" in submission["vaccine"]["w14v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "cBVSBNN9Ij5", "value": "true"})
+                if submission["vaccine"]["w14v"] is not None and "4" in submission["vaccine"]["w14v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "r8RTl9y1IBX", "value": "true"})
+                if submission["vaccine"]["w14v"] is not None and "5" in submission["vaccine"]["w14v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "DmIlUKrCK5c", "value": "true"})
+
+                if submission["vaccine"]["m9v"] is not None and "1" in submission["vaccine"]["m9v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "WqGN5HkViYK", "value": "true"})
+                if submission["vaccine"]["m9v"] is not None and "2" in submission["vaccine"]["m9v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "XJxoT9268rK", "value": "true"})
+
+                if submission["vaccine"]["m16v"] is not None and "3" in submission["vaccine"]["m16v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "ey7fPlduahf", "value": "true"})
+                if submission["vaccine"]["m16v"] is not None and "2" in submission["vaccine"]["m16v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "cwYwhTdZaRG", "value": "true"})
+                if submission["vaccine"]["m16v"] is not None and "1" in submission["vaccine"]["m16v"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "Gt1Lafhtu9O", "value": "true"})
+
+                if submission["pvdose"] is not None and "1" in submission["pvdose"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "ksGjrirdozT", "value": "true"})
+                if submission["pfpvdose"] is not None and "1" in submission["pfpvdose"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "o8lTwLwyK5W", "value": "true"})
+                if submission["maldose"] is not None and "1" in submission["maldose"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "gT6Ga1rXYHv", "value": "true"})
+
+                if submission["refer"] is not None and "1" in submission["refer"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "dNn1kiXHaRp", "value": "true"})
+                if submission["amoxidose"] is not None and "1" in submission["amoxidose"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "Ea6oKhCo7FQ", "value": "true"})
+                if submission["gentadose"] is not None and "1" in submission["gentadose"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "RPxjehRGRKT", "value": "true"})
+                if submission["ifadose"] is not None and "1" in submission["ifadose"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "MGhCCxKUzwX", "value": "true"})
+                if submission["pcmdose"] is not None and "1" in submission["pcmdose"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "m2KVw0VPRLl", "value": "true"})
+                if submission["orsdose"] is not None and "1" in submission["orsdose"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "K18yTnEB1Sp", "value": "true"})
+                if submission["zincdose"] is not None and "1" in submission["zincdose"]:
+                    tracker["enrollments"][0]["events"][0]["dataValues"].append(
+                        {"dataElement": "agQdcpHFcdb", "value": "true"})
+
+                tracker_payloads.append(tracker)
+
+            else:
+                print("Event with uuid:", event_id,
+                      "already exists in DHIS2. Skipping.")
+                log_info(
+                    f"Event with ID {event_id} already exists in DHIS2. Skipping.")
+        else:
+            log_info(
+                f"DHIS2 organization unit not found for facility nin: {facility_nin} -- block: {block_name} and parent: {district_name}. Skipping.")
+            print("DHIS2 organization unit not found for block:",
+                  block_name, "and parent:", district_name, "Skipping.")
+    return tracker_payloads
+
+
+def push_to_dhis2(dhis2_events):
+    try:
+        for event in dhis2_events:
+            response = requests.post(
+                f"{DHIS2_API_URL}/trackedEntityInstances", json=event, auth=DHIS2_AUTH)
+            if response.status_code != 200:
+
+                log_error(
+                    f"Failed to create event in DHIS2. Status code: {response.status_code}, Response: {response.content}")
+
+                if 'conflicts' in response.json():
+                    for conflict in response.json()['conflicts']:
+                        log_error(
+                            f"DHIS2 Conflict: {conflict['object']} - {conflict['value']}")
+            else:
+                log_info("Data successfully pushed to DHIS2.")
+    except Exception as e:
+        log_error(f"An error occurred while pushing data to DHIS2: {e}")
+
+
+def main():
+    try:
+        configure_logging()
+        odk_data = fetch_odk_data()
+        dhis2_events = transform_to_dhis2_events(odk_data)
+        push_to_dhis2(dhis2_events)
+    except Exception as e:
+        log_error("An error occurred in the main process: " + str(e))
+
+
+if __name__ == "__main__":
+    main()
