@@ -16,6 +16,22 @@ def log_error(message):
     logging.error(message)
 
 
+def get_dhis2_orgunit_uid_by_block_district(block, district, facility):
+    params = {
+        "filter": f"displayName:like:{facility}",
+        "fields": "id,name,parent[id,name]",
+    }
+    response = requests.get(
+        f"{DHIS2_API_URL}/organisationUnits", params=params, auth=DHIS2_AUTH)
+    if response.status_code == 200:
+        orgunits = response.json()["organisationUnits"]
+        for orgunit in orgunits:
+            parent_name = orgunit["parent"]["name"]
+            if parent_name.lower() == block.lower():
+                return orgunit["id"]
+    return None
+
+
 def get_dhis2_orgunit_uid_by_nin(facility_nin):
     params = {
         'fields': 'id,name,code',
@@ -44,32 +60,19 @@ def get_dhis2_orgunit_uid_by_nin(facility_nin):
         return None
 
 
-def get_dhis2_orgunit_uid_by_block_district(block, district, facility):
-    params = {
-        "filter": f"displayName:like:{facility}",
-        "fields": "id,name,parent[id,name]",
-    }
-    response = requests.get(
-        f"{DHIS2_API_URL}/organisationUnits", params=params, auth=DHIS2_AUTH)
-    if response.status_code == 200:
-        orgunits = response.json()["organisationUnits"]
-        for orgunit in orgunits:
-            parent_name = orgunit["parent"]["name"]
-            if parent_name.lower() == block.lower():
-                return orgunit["id"]
-    return None
-
-
 def data_value_exists_in_dhis2(event_id, orgunit_uid):
     try:
-        response = requests.get(f"{DHIS2_API_URL}/trackedEntityInstances?ou={orgunit_uid}&program=rlXLtThwiu6",
+
+        response = requests.get(f"{DHIS2_API_URL}/trackedEntityInstances?ou={orgunit_uid}&program=Tt9ILP7v4Fd",
                                 params={"filter": f"vJ5V1IQXZjP:EQ:{event_id}"}, auth=DHIS2_AUTH)
-        print("matching uuid--", response.url)
+
         if response.status_code == 200:
             events = response.json()["trackedEntityInstances"]
             print("length events--", len(events))
-            return len(events) > 0
-        return False
+            if len(events) > 0:
+                print("matching uuid--", response.url)
+                return True
+            return False
     except Exception as e:
         log_error("An error occurred while checking data value in DHIS2.", e)
         return False
