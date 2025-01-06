@@ -1,11 +1,14 @@
 from datetime import datetime
 import os
 
-
-ODK_API_URL = "https://odk.nipi-cure.org/v1/projects/9/forms/dss_health.svc/Submissions"
+ODK_API_URL = "https://odk.nipi-cure.org/v1/projects/9/forms/dss_child_health.svc/Submissions"
 DHIS2_API_URL = "http://172.105.253.84:8665/odk_nipi/api"
 
 ODK_AUTH = os.getenv("ODK_AUTH")
 DHIS2_AUTH = os.getenv("DHIS2_AUTH")
 
 LOG_FILE = datetime.now().strftime("%Y-%m-%d") + "_integration.log"
+
+
+
+
