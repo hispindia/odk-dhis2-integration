@@ -7,7 +7,7 @@ if os.path.exists(auth_file):
 else:
     raise FileNotFoundError("Authentication file not found!")
 
-ODK_API_URL = "https://iphs.abdm.gov.in/v1/projects/1/forms/iphs_database.svc/Submissions?$filter=__system/submissionDate ge 2025-01-05&$skip=10&$top=1"
+ODK_API_URL = "https://iphs.abdm.gov.in/v1/projects/1/forms/iphs_database.svc/Submissions"
 ODK_AUTH = (auth_data.get("ODK_USERNAME"), auth_data.get("ODK_PASSWORD"))
 
 DHIS2_API_URL = "https://iphs.nipi-cure.org/api"
