@@ -18,7 +18,7 @@ def fetch_data_element_mapping(dhis2_url, program_stage_id, dhis2_auth):
         program_stage_data = response.json()
         
         return {
-            element['dataElement']['name'].replace('_raw_de_hr', ''): {
+            element['dataElement']['name'].replace('_raw_de_ser', ''): {
                 "id": element['dataElement']['id'],
                 "name": element['dataElement']['name']
             }
@@ -28,7 +28,7 @@ def fetch_data_element_mapping(dhis2_url, program_stage_id, dhis2_auth):
         raise Exception(f"Failed to fetch data element mappings. Status code: {response.status_code}")
 
 def data_value_exists_in_dhis2(event_id, orgunit_uid, dhis2_url, dhis2_auth):
-    params = {"filter": f"VTCQOcgxnbu:EQ:{event_id}", "ou": orgunit_uid, "program": "xHqM68DpuZj"}
+    params = {"filter": f"VTCQOcgxnbu:EQ:{event_id}", "ou": orgunit_uid, "program": "PMfGHFxeUmx"}
     response = requests.get(f"{dhis2_url}/trackedEntityInstances", params=params, auth=dhis2_auth)
     if response.status_code == 200:
         events = response.json().get("trackedEntityInstances", [])
@@ -47,18 +47,18 @@ def create_tracker_payload(submission, orgunit_uid, data_values):
         "enrollments": [
             {
                 "orgUnit": orgunit_uid,
-                "program": "xHqM68DpuZj",
+                "program": "PMfGHFxeUmx",
                 "enrollmentDate": submission["Assess_team"]["Date_of_Assessment"],
                 "incidentDate": submission["Assess_team"]["Date_of_Assessment"],
                 "dueDate": submission["Assess_team"]["Date_of_Assessment"],
                 "events": [
                     {
-                        "program": "xHqM68DpuZj",
+                        "program": "PMfGHFxeUmx",
                         "orgUnit": orgunit_uid,
                         "eventDate": submission["Assess_team"]["Date_of_Assessment"],
                         "status": "COMPLETED",
                         "storedBy": "admin_import",
-                        "programStage": "hiF9ywHeAlE",
+                        "programStage": "VqbYBiHKeXz",
                         "dataValues": data_values
                     }
                 ]

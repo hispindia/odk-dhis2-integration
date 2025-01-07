@@ -15,8 +15,11 @@ def main():
     try:
 
         logging.info("Fetching data element mappings from DHIS2.")
-        data_element_mapping = fetch_data_element_mapping(DHIS2_API_URL, PROGRAM_STAGE_ID, DHIS2_AUTH)
-        logging.info(f"Fetched data element mapping: {data_element_mapping}")
+        calculate_element_mapping, non_calculate_element_mapping = fetch_data_element_mapping(
+            DHIS2_API_URL, PROGRAM_STAGE_ID, DHIS2_AUTH
+        )
+        logging.info(f"Fetched calculate element mapping: {calculate_element_mapping}")
+        logging.info(f"Fetched non-calculate element mapping: {non_calculate_element_mapping}")
 
         logging.info("Starting data fetch from ODK API.")
         response = requests.get(ODK_API_URL, auth=ODK_AUTH)
@@ -33,7 +36,7 @@ def main():
                     logging.info(f"Data already exists for NIN: {record.get('find_hf', {}).get('srch_nin')}")
                     continue
 
-                data_values = map_odk_to_dhis2(record, data_element_mapping)
+                data_values = map_odk_to_dhis2(record, calculate_element_mapping, non_calculate_element_mapping)
                 tracker_payload = create_tracker_payload(record, orgunit_uid, data_values)
 
                 if push_to_dhis2(tracker_payload, DHIS2_API_URL, session):
@@ -44,7 +47,7 @@ def main():
         else:
             logging.error(f"Failed to fetch data from ODK. Status code: {response.status_code}, Response: {response.text}")
     except Exception as e:
-        logging.error(f"An error occurred during HR domain integration: {str(e)}")
+        logging.error(f"An error occurred during Services domain integration: {str(e)}")
     finally:
         session.close()
         logging.info("Session closed.")

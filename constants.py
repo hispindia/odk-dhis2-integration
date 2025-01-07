@@ -14,6 +14,6 @@ DHIS2_API_URL = "https://iphs.nipi-cure.org/api"
 DHIS2_AUTH = (auth_data.get("DHIS2_USERNAME"), auth_data.get("DHIS2_PASSWORD"))
 
 LOG_FILE = "hr_data_push.log"
-PROGRAM_STAGE_ID = "hiF9ywHeAlE"
+PROGRAM_STAGE_ID = "VqbYBiHKeXz"
 TRACKED_ENTITY_TYPE = "tbqOAw2BJIe"
-PROGRAM_ID = "xHqM68DpuZj"
+PROGRAM_ID = "PMfGHFxeUmx"
