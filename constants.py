@@ -1,17 +1,19 @@
-from datetime import datetime
 import os
-ODK_API_BASE_URL = "https://iphs.abdm.gov.in/v1/projects/1/forms/iphs_database.svc/Submissions"
-def construct_odk_api_url(limit):
-    limit_str = f"?$top={limit}"
-    full_url = ODK_API_BASE_URL 
-    return full_url
 
+auth_file = "auth.enc"
+if os.path.exists(auth_file):
+    with open(auth_file) as f:
+        auth_data = dict(line.strip().split('=', 1) for line in f if '=' in line)
+else:
+    raise FileNotFoundError("Authentication file not found!")
 
-limit = 10  
-
-ODK_API_URL = construct_odk_api_url(limit)
+ODK_API_URL = "https://iphs.abdm.gov.in/v1/projects/1/forms/iphs_database.svc/Submissions?$filter=__system/submissionDate ge 2025-01-05&$skip=10&$top=2"
+ODK_AUTH = (auth_data.get("ODK_USERNAME"), auth_data.get("ODK_PASSWORD"))
 
 DHIS2_API_URL = "https://iphs.nipi-cure.org/api"
-ODK_AUTH = os.getenv("ODK_AUTH")
-DHIS2_AUTH = os.getenv("DHIS2_AUTH")
-LOG_FILE = datetime.now().strftime("%Y-%m-%d") + "_integration_abdm.log"
+DHIS2_AUTH = (auth_data.get("DHIS2_USERNAME"), auth_data.get("DHIS2_PASSWORD"))
+
+LOG_FILE = "gov_data_push.log"
+PROGRAM_STAGE_ID = "ZJ6HL7aOf8X"
+TRACKED_ENTITY_TYPE = "tbqOAw2BJIe"
+PROGRAM_ID = "bV4VOVumELH"
