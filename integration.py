@@ -1,6 +1,7 @@
 import requests
 from utils import remove_null_values, assign_value_if_not_null
 import logging
+
 def get_dhis2_orgunit_uid_by_nin(facility_nin, dhis2_url, dhis2_auth):
     params = {'fields': 'id,name,code', 'level': 5, 'filter': f'code:eq:{facility_nin}'}
     response = requests.get(f"{dhis2_url}/organisationUnits", params=params, auth=dhis2_auth)
@@ -10,8 +11,24 @@ def get_dhis2_orgunit_uid_by_nin(facility_nin, dhis2_url, dhis2_auth):
             return orgunits[0]['id']
     return None
 
+def fetch_data_element_mapping(dhis2_url, program_stage_id, dhis2_auth):
+    url = f"{dhis2_url}/programStages/{program_stage_id}?fields=programStageDataElements[dataElement[id,name,code]]"
+    response = requests.get(url, auth=dhis2_auth)
+    if response.status_code == 200:
+        program_stage_data = response.json()
+        
+        return {
+            element['dataElement']['name'].replace('_raw_de_hr', ''): {
+                "id": element['dataElement']['id'],
+                "name": element['dataElement']['name']
+            }
+            for element in program_stage_data['programStageDataElements']
+        }
+    else:
+        raise Exception(f"Failed to fetch data element mappings. Status code: {response.status_code}")
+
 def data_value_exists_in_dhis2(event_id, orgunit_uid, dhis2_url, dhis2_auth):
-    params = {"filter": f"VTCQOcgxnbu:EQ:{event_id}", "ou": orgunit_uid, "program": "bV4VOVumELH"}
+    params = {"filter": f"VTCQOcgxnbu:EQ:{event_id}", "ou": orgunit_uid, "program": "xHqM68DpuZj"}
     response = requests.get(f"{dhis2_url}/trackedEntityInstances", params=params, auth=dhis2_auth)
     if response.status_code == 200:
         events = response.json().get("trackedEntityInstances", [])
@@ -30,18 +47,18 @@ def create_tracker_payload(submission, orgunit_uid, data_values):
         "enrollments": [
             {
                 "orgUnit": orgunit_uid,
-                "program": "bV4VOVumELH",
+                "program": "xHqM68DpuZj",
                 "enrollmentDate": submission["Assess_team"]["Date_of_Assessment"],
                 "incidentDate": submission["Assess_team"]["Date_of_Assessment"],
                 "dueDate": submission["Assess_team"]["Date_of_Assessment"],
                 "events": [
                     {
-                        "program": "bV4VOVumELH",
+                        "program": "xHqM68DpuZj",
                         "orgUnit": orgunit_uid,
                         "eventDate": submission["Assess_team"]["Date_of_Assessment"],
                         "status": "COMPLETED",
                         "storedBy": "admin_import",
-                        "programStage": "ZJ6HL7aOf8X",
+                        "programStage": "hiF9ywHeAlE",
                         "dataValues": data_values
                     }
                 ]
