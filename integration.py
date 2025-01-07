@@ -18,6 +18,29 @@ def data_value_exists_in_dhis2(event_id, orgunit_uid, dhis2_url, dhis2_auth):
         return len(events) > 0
     return False
 
+def fetch_data_element_mapping(dhis2_url, program_stage_id, dhis2_auth):
+    url = f"{dhis2_url}/programStages/{program_stage_id}?fields=programStageDataElements[dataElement[id,name,code]]"
+    response = requests.get(url, auth=dhis2_auth)
+    if response.status_code == 200:
+        program_stage_data = response.json()
+        
+        calculate_mapping = {
+            element['dataElement']['name']: element['dataElement']['id']
+            for element in program_stage_data['programStageDataElements']
+            if 'calculate' in element['dataElement']['code']
+        }
+        non_calculate_mapping = {
+            element['dataElement']['name'].replace('_raw_de_gov', ''): {
+                "id": element['dataElement']['id'],
+                "name": element['dataElement']['name']
+            }
+            for element in program_stage_data['programStageDataElements']
+            if 'calculate' not in element['dataElement']['code']
+        }
+        return calculate_mapping, non_calculate_mapping
+    else:
+        raise Exception(f"Failed to fetch data element mappings. Status code: {response.status_code}")
+
 def create_tracker_payload(submission, orgunit_uid, data_values):
     return {
         "trackedEntityType": "tbqOAw2BJIe",
