@@ -1,61 +1,15 @@
-import requests
 import logging
-from constants import DHIS2_API_URL, DHIS2_AUTH, LOG_FILE
+from datetime import datetime
 
-def configure_logging():
-    logging.basicConfig(filename=LOG_FILE, level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+def configure_logging(log_file):
+    logging.basicConfig(filename=log_file, level=logging.INFO,
+                        format="%(asctime)s - %(levelname)s - %(message)s")
 
-def log_info(message):
-    logging.info(message)
+def assign_value_if_not_null(value):
+    return value if value else None
 
-def log_error(message):
-    logging.error(message)
+def format_date(date_value):
+    return datetime.fromisoformat(date_value).strftime('%Y-%m-%d') if date_value else None
 
-def get_dhis2_orgunit_uid_by_block_district(block, district, facility):
-    params = {
-        "filter": f"displayName:like:{facility}",
-        "fields": "id,name,parent[id,name]",
-    }
-    response = requests.get(f"{DHIS2_API_URL}/organisationUnits", params=params, auth=DHIS2_AUTH)
-    if response.status_code == 200:
-        orgunits = response.json()["organisationUnits"]
-        for orgunit in orgunits:
-            parent_name = orgunit["parent"]["name"]
-            if parent_name.lower() == block.lower():
-                return orgunit["id"]
-    return None
-
-def get_dhis2_orgunit_uid_by_nin(facility_nin):
-    params = {
-        'fields': 'id,name,code',
-        'level': 5,
-        'filter': f'code:eq:{facility_nin}'
-    }
-
-    try:
-        response = requests.get(f"{DHIS2_API_URL}/organisationUnits", params=params, auth=DHIS2_AUTH)
-        if response.status_code == 200:
-            orgunits = response.json().get('organisationUnits', [])
-            if orgunits:
-                return orgunits[0]['id'] 
-            else:
-                log_error(f"No orgunit found for code: {facility_nin}")
-                return None
-        else:
-            log_error(f"Error: Unable to fetch data. Status Code: {response.status_code}")
-            return None
-    except Exception as e:
-        log_error(f"Error: {e}")
-        return None
-
-def data_value_exists_in_dhis2(event_id, orgunit_uid):
-    try:
-        response = requests.get(f"{DHIS2_API_URL}/trackedEntityInstances?ou={orgunit_uid}&program=Hn9YUipbpZO", params={"filter": f"VTCQOcgxnbu:EQ:{event_id}"}, auth=DHIS2_AUTH)
-        if response.status_code == 200:
-            events = response.json()["trackedEntityInstances"]
-            if len(events) > 0:
-                return True
-            return False
-    except Exception as e:
-        log_error(f"An error occurred while checking data value in DHIS2: {e}")
-        return False
+def remove_null_values(data):
+    return [item for item in data if item["value"] is not None]
