@@ -8,27 +8,24 @@ from utils import (
     log_error,
     get_dhis2_orgunit_uid_by_block_district,
     get_dhis2_orgunit_uid_by_nin,
-    data_value_exists_in_dhis2, sendEmail
+    data_value_exists_in_dhis2,
 )
+
 
 def fetch_odk_data():
     try:
         today_date = datetime.now().strftime("%Y-%m-%d")
         updated_odk_api_url = f"{ODK_API_URL}?$filter=__system/submissionDate ge {today_date}"
-        #updated_odk_api_url = f"{ODK_API_URL}?$filter=__system/submissionDate ge 2025-02-10"
-
-        log_info(f"Data fetched from odk for date ge {today_date}, with url {updated_odk_api_url}")
-
-        print(f"Data fetched for:", updated_odk_api_url)
-
+        print("Data fetched for:", updated_odk_api_url)
+       
         response = requests.get(updated_odk_api_url, auth=ODK_AUTH)
 
         if response.status_code == 200:
             if response.json() and "value" in response.json():
-                log_info(f"ODK data fetched successfully.")
+                log_info("ODK data fetched successfully.")
                 return response.json()["value"]
             else:
-                log_error(f"Invalid or missing JSON content in the ODK response.")
+                log_error("Invalid or missing JSON content in the ODK response.")
                 return []
         else:
             log_error(
@@ -140,49 +137,25 @@ def transform_to_dhis2_events(odk_data):
         4: "E5XV8idvaYf",
         5: "K6KBH2P8ov3"
     }
-    for index, submission in enumerate(odk_data):
+    for submission in odk_data:
         # Ensure 'login_check1' and 'g_info' keys exist
         if 'login_check1' not in submission or 'g_info' not in submission:
             log_error(f"Missing 'login_check1' or 'g_info' in submission: {submission}")
             continue
-
-        global total_patient_count
-        total_patient_count =  index + 1   
+       
         block_name = submission["login_check1"]["BLOCK_NAME"]
         district_name = submission["login_check1"]["DISTRICT_NAME"]
         facility_name = submission["login_check1"]["Facility"]
         facility_nin = submission["login_check1"]["srch_nin"]
         # orgunit_uid = get_dhis2_orgunit_uid_by_block_district(block_name, district_name,facility_name)
-        temp_patient_id = str(submission["g_info"]["patient_id"])
-        print(f"ODK data Sl.No. {index+1}. patient_id {temp_patient_id}")
-        log_info(f"ODK data Sl.No. {index+1}. patient_id {temp_patient_id}")
         orgunit_uid = get_dhis2_orgunit_uid_by_nin(facility_nin)
         # print("--", orgunit_uid)
         # print("name--", block_name, "--", district_name, "--", facility_name)
-
-        if temp_patient_id == 'None' or temp_patient_id == 'null':
-            global null_patient_id_count
-            null_patient_id_count = null_patient_id_count + 1
-        '''
-        instanceName = str(submission["meta"]["instanceName"])
-        temp_index = instanceName.find("CREATE")
-        if "CREATE" in instanceName:
-            instanceName = str((submission["meta"]["instanceName"]).split(":")[1]).strip()
-            print("instanceName--", instanceName )
-        '''
         if orgunit_uid:
-
-            # uuid:6f9d9577-90f6-4668-ae33-4bd0cadc7011
-            #event_id = submission["__id"].split(":")[1]
-
             event_id = str(submission["g_info"]["patient_id"])
-            #print("event_id/patient_id -- ", event_id )
-            if not data_value_exists_in_dhis2(event_id, orgunit_uid) and (event_id != 'None' and event_id != 'null'):
-                print(f"Event with ID 1 {event_id} not exists in DHIS2. Adding.")
-                log_info(f"Event with ID 1 {event_id} not exists in DHIS2. Adding.")
-                #print("---nexist orgunit--",
-                      #assign_value_if_not_null(submission["login_check1"]["y_mobile"]))
-                #print("---nexist orgunit facility_nin --", facility_nin , " -- orgunit_uid " , orgunit_uid)
+            if not data_value_exists_in_dhis2(event_id, orgunit_uid):
+                print("---nexist orgunit--",
+                      assign_value_if_not_null(submission["login_check1"]["y_mobile"]))
                 tracker = {
                     "trackedEntityType": "oATSCRUUP2e",
                     "orgUnit": orgunit_uid,
@@ -196,15 +169,15 @@ def transform_to_dhis2_events(odk_data):
                         {"attribute": "vJ5V1IQXZjP", "value": str(
                             submission["g_info"]["patient_id"])},
                         {"attribute": "Pjefw1pegya", "value": assign_value_if_not_null(
-                            submission["g_info"]["p_mnumber"])},
+                            submission["ch_info_new"]["p_mnumber"])},
                         {"attribute": "PZpInnrrLro", "value": assign_value_if_not_null(
-                            submission["g_info"]["p_name"])},
+                            submission["ch_info_new"]["p_name"])},
                         {"attribute": "LrySs4kH5RF", "value": assign_value_if_not_null(
-                            submission["g_info"]["p_gname"])},
+                            submission["ch_info_new"]["p_gname"])},
                         {"attribute": "OQjRgNoLfSX", "value": assign_value_if_not_null(
                             submission["g_info"]["p_village"])},
                         {"attribute": "oEMrehxUj3q", "value": assign_value_if_not_null(
-                            submission["g_info"]["gender"])},
+                            submission["ch_info_new"]["gender"])},
                     ]),
                     "enrollments": [
                         {
@@ -224,8 +197,8 @@ def transform_to_dhis2_events(odk_data):
                                     "dataValues": remove_null_values([
                                         {"dataElement": "jjrFSLhONiM", "value": assign_value_if_not_null(
                                             submission["ageindays"])},
-                                        {"dataElement": "Tg78gykR93z", "value": assign_value_if_not_null(submission["g_info"]["dob_month2"])},
-                                           {"dataElement": "wiPBFA12xk3", "value": assign_value_if_not_null(submission["g_info"]["dob_year2"])},
+                                        {"dataElement": "Tg78gykR93z", "value": assign_value_if_not_null(submission["g_info"]["dob_month1"])},
+                                           {"dataElement": "wiPBFA12xk3", "value": assign_value_if_not_null(submission["g_info"]["dob_year1"])},
                                         # {"dataElement": "SfbOkRY9DpZ", "value": assign_value_if_not_null(submission["age_group"]["age_week"])},
                                         {"dataElement": "k6FVpUuqsS2", "value": assign_value_if_not_null(
                                             submission["age2m"])},
@@ -552,8 +525,6 @@ def transform_to_dhis2_events(odk_data):
                         )
                
 
-                #if tracker_payloads:
-                    #push_to_dhis2(tracker_payloads,event_id)
             else:
                 print("Event with uuid:", event_id,
                       "already exists in DHIS2. Skipping.")
@@ -582,12 +553,10 @@ def transform_to_dhis2_events(odk_data):
 
 def push_to_dhis2(dhis2_events):
     try:
-        #log_info("Data successfully pushed to DHIS2.")
-        print(f"dhis2_events size {len(dhis2_events)}")
-        for event_index, event in enumerate(dhis2_events):
+        log_info("Data successfully pushed to DHIS2.")
+        for event in dhis2_events:
             response = requests.post(
                 f"{DHIS2_API_URL}/trackedEntityInstances", json=event, auth=DHIS2_AUTH)
-            
             if response.status_code != 200:
                 # Log detailed error information
                 log_error(
@@ -598,13 +567,6 @@ def push_to_dhis2(dhis2_events):
                         log_error(
                             f"DHIS2 Conflict: {conflict['object']} - {conflict['value']}")
             else:
-                global  event_push_count
-                event_push_count = event_index + 1
-                #event_id = str(submission["g_info"]["patient_id"])
-                #event_uid = response.json().get("response", {}).get("importSummaries", [])[0].get("reference")
-                #event_count = response.json().get("response", {}).get("importSummaries", [])[0].get("importCount",{}).get("imported")
-                #log_info(f"Data/Event successfully pushed to DHIS2 with. patient_id : {patientId}.Event count: {event_count}.imported event : {event_uid}")
-                #logging.info(f"Events created successfully. Visitcode : {Visitcode} . BeneficiaryRegID : {BeneficiaryRegID}. Event count: {event_count}. imported event : {event_uid}")
                 log_info("Data successfully pushed to DHIS2.")
                 # Log the response
                 log_info(f"Tracker event posted. Response: {response.status_code}, {response.text}")
@@ -615,30 +577,14 @@ def push_to_dhis2(dhis2_events):
 def main():
     try:
         configure_logging()
-        current_time_start = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print( f"pushing Tracker event data in DHIS2 start . { current_time_start }" )
-        log_info(f"pushing Tracker event data in DHIS2 start . { current_time_start }")
-        
         odk_data = fetch_odk_data()
         if odk_data is not None:
             dhis2_events = transform_to_dhis2_events(odk_data)
-            if dhis2_events:
-                push_to_dhis2(dhis2_events)
+        if dhis2_events:
+            push_to_dhis2(dhis2_events)
     except Exception as e:
         log_error("An error occurred in the main process: " + str(e))
 
 
 if __name__ == "__main__":
-
-    event_push_count = 0
-    null_patient_id_count = 0
-    total_patient_count = 0
-
     main()
-    current_time_end = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print( f"pushing Tracker event data in DHIS2 finished . { current_time_end }" )
-    log_info(f"pushing Tracker event data in DHIS2 finished . { current_time_end }")
-
-    print(f"total_patient_count. {total_patient_count}, null_patient_id_count. {null_patient_id_count}, event_push_count {event_push_count}")
-    log_info(f"total_patient_count. {total_patient_count}, null_patient_id_count. {null_patient_id_count}, event_push_count {event_push_count}")
-    sendEmail()
