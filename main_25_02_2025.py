@@ -7,13 +7,13 @@ from utils import configure_logging, log_info, log_error, get_dhis2_orgunit_uid_
 def fetch_odk_data():
     try:
         today_date = datetime.now().strftime("%Y-%m-%d")
-        updated_odk_api_url = f"{ODK_API_URL}?$filter=__system/submissionDate ge {today_date}"
-        #updated_odk_api_url = f"{ODK_API_URL}?$filter=__system/submissionDate ge 2024-10-20"
+        #updated_odk_api_url = f"{ODK_API_URL}?$filter=__system/submissionDate ge {today_date}"
+        updated_odk_api_url = f"{ODK_API_URL}?$filter=__system/submissionDate ge 2024-10-09"
         print("data fetching for: ",updated_odk_api_url)
         response = requests.get(updated_odk_api_url, auth=ODK_AUTH)
         
         if response.status_code == 200:
-            log_info(f"ODK data fetched successfully.from url {updated_odk_api_url}")
+            log_info(f"ODK data fetched successfully.")
             print(f"ODK data fetched successfully.")
             return response.json()["value"]
         else:
@@ -33,10 +33,9 @@ def transform_to_dhis2_events(odk_data):
         if orgunit_uid:
             # uuid:6f9d9577-90f6-4668-ae33-4bd0cadc7011
             event_id = submission["__id"].split(":")[1]
-            temp_event_date = submission["location_camp"]["date_camp"]
             if not data_value_exists_in_dhis2(event_id):
-                print(f"for row { index +1}, Event with ID  {event_id} not exists in DHIS2. Adding. for orgunit_uid {orgunit_uid}, for date {temp_event_date}")
-                log_info(f"for row { index +1}, Event with ID {event_id} not exists in DHIS2. Adding. for orgunit_uid {orgunit_uid}, for date {temp_event_date}")
+                print(f"for row { index +1}, Event with ID  {event_id} not exists in DHIS2. Adding. for orgunit_uid {orgunit_uid}, for date {submission["location_camp"]["date_camp"]}")
+                log_info(f"for row { index +1}, Event with ID {event_id} not exists in DHIS2. Adding. for orgunit_uid {orgunit_uid}, for date {submission["location_camp"]["date_camp"]}")
                 # log_info("event---")
                 event = {
                 "eventDate": submission["location_camp"]["date_camp"],
@@ -59,8 +58,8 @@ def transform_to_dhis2_events(odk_data):
             }
                 dhis2_events.append(event)
             else:
-                print(f"for row { index +1 },Event with uuid:, {event_id}, for date {temp_event_date} already exists in DHIS2. Skipping.")
-                log_info(f"for row { index +1 }, Event with ID {event_id}, for date {temp_event_date} already exists in DHIS2. Skipping.")
+                print(f"for row { index +1},Event with uuid:, {event_id} , for date {submission["location_camp"]["date_camp"]} already exists in DHIS2. Skipping.")
+                log_info(f"for row { index +1}, Event with ID {event_id}, , for date {submission["location_camp"]["date_camp"]} already exists in DHIS2. Skipping.")
         else:
             log_info(f"DHIS2 organization unit not found for block: {block_name} and parent: {district_name}. Skipping.")
             print("DHIS2 organization unit not found for block:", block_name, "and parent:", district_name, "Skipping.")

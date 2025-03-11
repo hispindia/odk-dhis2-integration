@@ -7,12 +7,10 @@ import smtplib
 from email.mime.multipart import MIMEMultipart 
 from email.mime.text import MIMEText 
 from email.mime.base import MIMEBase 
-from email import encoders
-from datetime import datetime
-import os
+from email import encoders 
 
 
-from constants import DHIS2_API_URL, DHIS2_AUTH, LOG_FILE, LOG_FILE_EVENT_ERROR_LOG,ODK_API_URL
+from constants import DHIS2_API_URL, DHIS2_AUTH, LOG_FILE
 
 def configure_logging():
     logging.basicConfig(filename=LOG_FILE, level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -23,16 +21,12 @@ def log_info(message):
 def log_error(message):
     logging.error(message)
 
-def get_dhis2_orgunit_uid_by_block_district(session_post, block, district):
+def get_dhis2_orgunit_uid_by_block_district(block, district):
     params = {
         "filter": f"displayName:like:{block}",
         "fields": "id,name,parent[id,name]",
     }
-    #http://172.105.253.84:8665/odk_nipi/api/organisationUnits.json?paging=false&fields=id,name,parent[id,name]&filter=displayName:like:Shopian
-    #response = requests.get(f"{DHIS2_API_URL}/organisationUnits", params=params, auth=DHIS2_AUTH)
-    response = session_post.get(f"{DHIS2_API_URL}/organisationUnits", params=params)
-    #print("response --",response)
-
+    response = requests.get(f"{DHIS2_API_URL}/organisationUnits", params=params, auth=DHIS2_AUTH)
     if response.status_code == 200:
         orgunits = response.json()["organisationUnits"]
         for orgunit in orgunits:
@@ -41,12 +35,10 @@ def get_dhis2_orgunit_uid_by_block_district(session_post, block, district):
                 return orgunit["id"]
     return None
 
-def data_value_exists_in_dhis2(session_post,event_id):
+def data_value_exists_in_dhis2(event_id):
     try:
         # response = requests.get(f"{DHIS2_API_URL}/events?dataElement=zkhndIoBYH7&filter=zkhndIoBYH7:like:{event_id}", auth=DHIS2_AUTH)
-        #response = requests.get(f"{DHIS2_API_URL}/events?", params={"dataElement": "zkhndIoBYH7", "filter": f"zkhndIoBYH7:like:{event_id}"}, auth=DHIS2_AUTH)
-        response = session_post.get(f"{DHIS2_API_URL}/events?", params={"dataElement": "zkhndIoBYH7", "filter": f"zkhndIoBYH7:like:{event_id}"})
-
+        response = requests.get(f"{DHIS2_API_URL}/events?", params={"dataElement": "zkhndIoBYH7", "filter": f"zkhndIoBYH7:like:{event_id}"}, auth=DHIS2_AUTH)
         # print("matching uuid--",response.url)
         if response.status_code == 200:
             events = response.json()["events"]
@@ -76,11 +68,12 @@ def sendEmail():
     #s.quit()
     
 
+
     fromaddr = "dss.nipi@hispindia.org"
 
     # list of email_id to send the mail
-    li = ["mithilesh.thakur@hispindia.org", "saurabh.leekha@hispindia.org","dpatankar@nipi-cure.org"]
-    #li = ["mithilesh.thakur@hispindia.org","mithilesh.hisp@gmail.com","yoursmithilesh@gmail.com"]
+    li = ["mithilesh.thakur@hispindia.org", "saurabh.leekha@hispindia.org"]
+    #li = ["mithilesh.thakur@hispindia.org"]
 
     for toaddr in li:
 
@@ -99,33 +92,15 @@ def sendEmail():
         msg['Subject'] = "ODK To DHIS2 Anemia Program data import log file"
         
         # string to store the body of the mail 
-        #body = "Python Script test of the Mail"
-
-        today_date = datetime.now().strftime("%Y-%m-%d")
-        updated_odk_api_url = f"{ODK_API_URL}?$filter=__system/submissionDate ge {today_date}"
-        body = f"ODK To DHIS2 Anemia Program data import log file for the url { updated_odk_api_url }"
+        body = "Python Script test of the Mail"
         
         # attach the body with the msg instance 
         msg.attach(MIMEText(body, 'plain')) 
         
         
-        # open the file to be sent
-
-        '''
-        files = [LOG_FILE]
-        for a_file in files:
-            attachment = open(a_file, 'rb')
-            file_name = os.path.basename(a_file)
-            part = MIMEBase('application','octet-stream')
-            part.set_payload(attachment.read())
-            part.add_header('Content-Disposition','attachment',filename=file_name)
-            encoders.encode_base64(part)
-            msg.attach(part)
-        '''   
-
-        
-        filename_log = LOG_FILE
-        attachment = open(filename_log, "rb") 
+        # open the file to be sent  
+        filename = LOG_FILE
+        attachment = open(filename, "rb") 
         
         # instance of MIMEBase and named as p 
         p = MIMEBase('application', 'octet-stream') 
@@ -136,7 +111,7 @@ def sendEmail():
         # encode into base64 
         encoders.encode_base64(p) 
         
-        p.add_header('Content-Disposition', "attachment; filename= %s" % filename_log) 
+        p.add_header('Content-Disposition', "attachment; filename= %s" % filename) 
         
         # attach the instance 'p' to instance 'msg' 
         msg.attach(p) 
@@ -147,7 +122,7 @@ def sendEmail():
         # start TLS for security 
         s.starttls() 
         
-        # Authentication , email-password
+        # Authentication 
         s.login(fromaddr, "*****") 
         
         # Converts the Multipart msg into a string 
